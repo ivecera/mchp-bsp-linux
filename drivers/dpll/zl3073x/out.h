@@ -29,8 +29,6 @@ struct zl3073x_out {
 		u32	esync_n_width;
 		s32	phase_comp;
 		u8	mode;
-	);
-	struct_group(inv, /* Invariants */
 		u8	ctrl;
 	);
 };
@@ -104,6 +102,35 @@ static inline bool zl3073x_out_is_diff(const struct zl3073x_out *out)
 static inline bool zl3073x_out_is_enabled(const struct zl3073x_out *out)
 {
 	return !!FIELD_GET(ZL_OUTPUT_CTRL_EN, out->ctrl);
+}
+
+/**
+ * zl3073x_out_is_stopped - check if the given output is stopped
+ * @out: pointer to out state
+ *
+ * Return: true if output is stopped, false if output is running
+ */
+static inline bool zl3073x_out_is_stopped(const struct zl3073x_out *out)
+{
+	return !!FIELD_GET(ZL_OUTPUT_CTRL_STOP, out->ctrl);
+}
+
+/**
+ * zl3073x_out_stop - set the stop bit for glitchless output stop
+ * @out: pointer to out state
+ */
+static inline void zl3073x_out_stop(struct zl3073x_out *out)
+{
+	out->ctrl |= ZL_OUTPUT_CTRL_STOP;
+}
+
+/**
+ * zl3073x_out_start - clear the stop bit to restart the output
+ * @out: pointer to out state
+ */
+static inline void zl3073x_out_start(struct zl3073x_out *out)
+{
+	out->ctrl &= ~ZL_OUTPUT_CTRL_STOP;
 }
 
 /**

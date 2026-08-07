@@ -108,11 +108,11 @@ const struct zl3073x_out *zl3073x_out_state_get(struct zl3073x_dev *zldev,
  * @index: output index to set state for
  * @out: desired output state
  *
- * Validates that invariant fields have not been modified, skips the HW
- * write if the mutable configuration is unchanged, and otherwise writes
- * only the changed cfg fields to hardware via the mailbox interface.
+ * Skips the HW write if the configuration is unchanged, and otherwise
+ * writes only the changed fields to hardware. The ctrl register is
+ * written directly, remaining fields go via the mailbox interface.
  *
- * Return: 0 on success, -EINVAL if invariants changed, <0 on HW error
+ * Return: 0 on success, <0 on HW error
  */
 int zl3073x_out_state_set(struct zl3073x_dev *zldev, u8 index,
 			  const struct zl3073x_out *out)
@@ -120,9 +120,14 @@ int zl3073x_out_state_set(struct zl3073x_dev *zldev, u8 index,
 	struct zl3073x_out *dout = &zldev->out[index];
 	int rc;
 
-	/* Reject attempts to change invariant fields (set at fetch only) */
-	if (WARN_ON(memcmp(&dout->inv, &out->inv, sizeof(out->inv))))
-		return -EINVAL;
+	/* Direct register write for ctrl (not a mailbox register) */
+	if (dout->ctrl != out->ctrl) {
+		rc = zl3073x_write_u8(zldev, ZL_REG_OUTPUT_CTRL(index),
+				      out->ctrl);
+		if (rc)
+			return rc;
+		dout->ctrl = out->ctrl;
+	}
 
 	/* Skip HW write if configuration hasn't changed */
 	if (!memcmp(&dout->cfg, &out->cfg, sizeof(out->cfg)))
