@@ -1110,8 +1110,21 @@ zl3073x_dpll_output_pin_state_on_dpll_get(const struct dpll_pin *dpll_pin,
 					  enum dpll_pin_state *state,
 					  struct netlink_ext_ack *extack)
 {
-	/* If the output pin is registered then it is always connected */
-	*state = DPLL_PIN_STATE_CONNECTED;
+	struct zl3073x_dpll_pin *pin = pin_priv;
+	struct zl3073x_dpll *zldpll = dpll_priv;
+	struct zl3073x_dev *zldev = zldpll->dev;
+	const struct zl3073x_out *out;
+	u8 out_id;
+
+	guard(mutex)(&zldpll->lock);
+
+	out_id = zl3073x_output_pin_out_get(pin->id);
+	out = zl3073x_out_state_get(zldev, out_id);
+
+	if (zl3073x_out_is_stopped(out))
+		*state = DPLL_PIN_STATE_DISCONNECTED;
+	else
+		*state = DPLL_PIN_STATE_CONNECTED;
 
 	return 0;
 }
