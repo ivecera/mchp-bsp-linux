@@ -68,6 +68,7 @@ struct zl3073x_dpll_pin {
  */
 #define ZL3073X_DPLL_PIN_CAP_NONE	0
 #define ZL3073X_DPLL_PIN_CAP_ESYNC	BIT(0)
+#define ZL3073X_DPLL_PIN_CAP_1PPS	BIT(1)
 
 /*
  * Supported esync ranges for input and for output per output pair type
@@ -1814,6 +1815,8 @@ zl3073x_dpll_pin_register(struct zl3073x_dpll_pin *pin, u32 index)
 	pin->caps = ZL3073X_DPLL_PIN_CAP_NONE;
 	if (props->esync_control)
 		pin->caps |= ZL3073X_DPLL_PIN_CAP_ESYNC;
+	if (zl3073x_props_is_freq_supported(props, 1))
+		pin->caps |= ZL3073X_DPLL_PIN_CAP_1PPS;
 
 	if (zl3073x_dpll_is_input_pin(pin)) {
 		const struct zl3073x_chan *chan;
@@ -2770,6 +2773,153 @@ zl3073x_dpll_ptp_getmaxphase(struct ptp_clock_info *info __always_unused)
 	return NSEC_PER_SEC - 1;
 }
 
+/**
+ * zl3073x_dpll_ptp_perout_enable - enable periodic output
+ * @zldpll: DPLL channel
+ * @perout: periodic output request
+ * @out_id: output to enable periodic output for
+ *
+ * Programs the output for 1 PPS (1 Hz) periodic output and clears the
+ * stop bit to start the output. For outputs in N-divided signal format
+ * the additional N-pin divisor is programmed and the main output divisor
+ * (and thus the P-pin frequency) is left unchanged. For other formats
+ * the main output divisor is programmed.
+ *
+ * Context: Caller must hold zldpll->lock.
+ * Return: 0 on success, <0 on error
+ */
+static int
+zl3073x_dpll_ptp_perout_enable(struct zl3073x_dpll *zldpll,
+			       struct ptp_perout_request *perout,
+			       u8 out_id)
+{
+	struct zl3073x_dev *zldev = zldpll->dev;
+	struct zl3073x_out out;
+	int rc;
+
+	/* Only 1 PPS (1 Hz) periodic output is supported */
+	if (perout->period.sec != 1 || perout->period.nsec)
+		return -EINVAL;
+
+	out = *zl3073x_out_state_get(zldev, out_id);
+
+	if (zl3073x_out_is_ndiv(&out)) {
+		const struct zl3073x_synth *synth;
+		u32 synth_freq;
+
+		/* Program the N-pin divisor to divide the P-pin frequency
+		 * down to 1 Hz and keep the main output divisor unchanged.
+		 */
+		synth = zl3073x_synth_state_get(zldev,
+						zl3073x_out_synth_get(&out));
+		synth_freq = zl3073x_synth_freq_get(synth);
+
+		out.esync_n_period = synth_freq / out.div;
+		if (out.esync_n_period < 2)
+			return -EINVAL;
+		out.esync_n_width = out.esync_n_period;
+	} else {
+		rc = zl3073x_out_freq_set(zldev, &out, 1);
+		if (rc)
+			return rc;
+	}
+
+	zl3073x_out_start(&out);
+
+	return zl3073x_out_state_set(zldev, out_id, &out);
+}
+
+/**
+ * zl3073x_dpll_ptp_perout_disable - disable periodic output
+ * @zldpll: DPLL channel
+ * @perout: periodic output request
+ *
+ * Sets the stop bit for glitchless output stop.
+ *
+ * Context: Caller must hold zldpll->lock.
+ * Return: 0 on success, <0 on error
+ */
+static int
+zl3073x_dpll_ptp_perout_disable(struct zl3073x_dpll *zldpll, u8 out_id)
+{
+	struct zl3073x_dev *zldev = zldpll->dev;
+	struct zl3073x_out out;
+
+	out = *zl3073x_out_state_get(zldev, out_id);
+	zl3073x_out_stop(&out);
+
+	return zl3073x_out_state_set(zldev, out_id, &out);
+}
+
+static int zl3073x_dpll_ptp_verify(struct ptp_clock_info *info,
+				   unsigned int pin_idx,
+				   enum ptp_pin_function func,
+				   unsigned int chan)
+{
+	switch (func) {
+	case PTP_PF_NONE:
+		break;
+	case PTP_PF_PEROUT:
+		/* Each pin is tied to a fixed perout channel */
+		if (chan != pin_idx)
+			return -EOPNOTSUPP;
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+static int zl3073x_dpll_ptp_enable(struct ptp_clock_info *info,
+				   struct ptp_clock_request *rq, int on)
+{
+	struct zl3073x_dpll *zldpll = container_of(info, struct zl3073x_dpll,
+						   ptp_info);
+	struct zl3073x_dpll_pin *pin;
+	int pin_idx, n;
+	u8 out_id;
+	int rc;
+
+	if (rq->type != PTP_CLK_REQ_PEROUT)
+		return -EOPNOTSUPP;
+
+	if (rq->perout.flags)
+		return -EOPNOTSUPP;
+
+	pin_idx = ptp_find_pin(zldpll->ptp_clock, PTP_PF_PEROUT,
+			       rq->perout.index);
+	if (pin_idx < 0)
+		return -EINVAL;
+
+	n = pin_idx;
+	for_each_set_bit(out_id, zldpll->perout_map, ZL3073X_NUM_OUTS) {
+		if (!n)
+			break;
+		n--;
+	}
+
+	mutex_lock(&zldpll->lock);
+	if (on)
+		rc = zl3073x_dpll_ptp_perout_enable(zldpll, &rq->perout,
+						    out_id);
+	else
+		rc = zl3073x_dpll_ptp_perout_disable(zldpll, out_id);
+	mutex_unlock(&zldpll->lock);
+
+	if (rc)
+		return rc;
+
+	list_for_each_entry(pin, &zldpll->pins, list) {
+		if (zl3073x_dpll_is_input_pin(pin))
+			continue;
+		if (zl3073x_output_pin_out_get(pin->id) == out_id)
+			dpll_pin_change_ntf(pin->dpll_pin);
+	}
+
+	return 0;
+}
+
 static const struct ptp_clock_info zl3073x_dpll_ptp_clock_info = {
 	.owner		= THIS_MODULE,
 	.max_adj	= ZL3073X_DPLL_PTP_MAX_ADJ,
@@ -2779,27 +2929,119 @@ static const struct ptp_clock_info zl3073x_dpll_ptp_clock_info = {
 	.adjfine	= zl3073x_dpll_ptp_adjfine,
 	.adjphase	= zl3073x_dpll_ptp_adjphase,
 	.getmaxphase	= zl3073x_dpll_ptp_getmaxphase,
+	.enable		= zl3073x_dpll_ptp_enable,
+	.verify		= zl3073x_dpll_ptp_verify,
 };
+
+/**
+ * zl3073x_dpll_out_is_perout_capable - check output perout eligibility
+ * @zldpll: DPLL channel
+ * @out_id: output index
+ *
+ * An output is eligible for periodic output if it supports step-time and
+ * its registered DPLL pins declare 1 PPS (1 Hz) support. For N-divided
+ * outputs only the N-pin is relevant, for other outputs all registered
+ * pins of the P/N pair must support it.
+ *
+ * Return: true if the output can be used for periodic output.
+ */
+static bool
+zl3073x_dpll_out_is_perout_capable(struct zl3073x_dpll *zldpll, u8 out_id)
+{
+	const struct zl3073x_out *out;
+	struct zl3073x_dpll_pin *pin;
+	bool capable = false;
+
+	/* Periodic output requires an output that supports step-time */
+	if (!zl3073x_dev_out_is_stepped(zldpll->dev, out_id))
+		return false;
+
+	out = zl3073x_out_state_get(zldpll->dev, out_id);
+
+	list_for_each_entry(pin, &zldpll->pins, list) {
+		if (zl3073x_dpll_is_input_pin(pin) ||
+		    zl3073x_dpll_is_nco_pin(pin) ||
+		    zl3073x_output_pin_out_get(pin->id) != out_id)
+			continue;
+
+		/* For N-divided outputs the P-pin does not matter */
+		if (zl3073x_out_is_ndiv(out) && zl3073x_is_p_pin(pin->id))
+			continue;
+
+		if (!(pin->caps & ZL3073X_DPLL_PIN_CAP_1PPS))
+			return false;
+		capable = true;
+	}
+
+	return capable;
+}
 
 /**
  * zl3073x_dpll_ptp_register - register PTP clock for a DPLL channel
  * @zldpll: DPLL channel to register PTP clock for
+ *
+ * Discovers the outputs assigned to this DPLL channel and registers
+ * a PTP pin for each one. The pin name reflects the physical output
+ * index (e.g. "OUT5") and supports PTP_PF_PEROUT only.
  *
  * Return: 0 on success, <0 on error
  */
 static int zl3073x_dpll_ptp_register(struct zl3073x_dpll *zldpll)
 {
 	struct zl3073x_dev *zldev = zldpll->dev;
+	struct ptp_pin_desc *pin_config;
+	const struct zl3073x_out *out;
 	struct ptp_clock *ptp_clock;
+	unsigned int i;
+	u8 id;
 
 	zldpll->ptp_info = zl3073x_dpll_ptp_clock_info;
 	snprintf(zldpll->ptp_info.name, sizeof(zldpll->ptp_info.name),
 		 "%s-dpll%u", dev_name(zldev->dev), zldpll->id);
 
+	bitmap_zero(zldpll->perout_map, ZL3073X_NUM_OUTS);
+	for (id = 0; id < ZL3073X_NUM_OUTS; id++) {
+		if (zl3073x_dev_out_dpll_get(zldev, id) == zldpll->id &&
+		    zl3073x_dpll_out_is_perout_capable(zldpll, id))
+			set_bit(id, zldpll->perout_map);
+	}
+
+	zldpll->ptp_info.n_per_out = bitmap_weight(zldpll->perout_map,
+						   ZL3073X_NUM_OUTS);
+	zldpll->ptp_info.n_pins = zldpll->ptp_info.n_per_out;
+	if (!zldpll->ptp_info.n_pins)
+		goto no_pins;
+
+	pin_config = kcalloc(zldpll->ptp_info.n_pins, sizeof(*pin_config),
+			     GFP_KERNEL);
+	if (!pin_config)
+		return -ENOMEM;
+
+	i = 0;
+	for_each_set_bit(id, zldpll->perout_map, ZL3073X_NUM_OUTS) {
+		out = zl3073x_out_state_get(zldev, id);
+
+		snprintf(pin_config[i].name,
+			 sizeof(pin_config[i].name), "OUT%u", id);
+		pin_config[i].index = i;
+		if (zl3073x_out_is_stopped(out)) {
+			pin_config[i].func = PTP_PF_NONE;
+		} else {
+			pin_config[i].func = PTP_PF_PEROUT;
+			pin_config[i].chan = i;
+		}
+		i++;
+	}
+
+	zldpll->ptp_info.pin_config = pin_config;
+
+no_pins:
 	ptp_clock = ptp_clock_register(&zldpll->ptp_info, zldev->dev);
 	if (IS_ERR(ptp_clock)) {
 		dev_err(zldev->dev, "Failed to register PTP clock for DPLL%u\n",
 			zldpll->id);
+		kfree(zldpll->ptp_info.pin_config);
+		zldpll->ptp_info.pin_config = NULL;
 		return PTR_ERR(ptp_clock);
 	}
 
@@ -2818,6 +3060,8 @@ static void zl3073x_dpll_ptp_unregister(struct zl3073x_dpll *zldpll)
 		ptp_clock_unregister(zldpll->ptp_clock);
 		zldpll->ptp_clock = NULL;
 	}
+	kfree(zldpll->ptp_info.pin_config);
+	zldpll->ptp_info.pin_config = NULL;
 }
 
 /**
