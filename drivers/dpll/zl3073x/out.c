@@ -171,3 +171,38 @@ int zl3073x_out_state_set(struct zl3073x_dev *zldev, u8 index,
 
 	return 0;
 }
+
+/**
+ * zl3073x_out_freq_set - set output frequency with 50/50 duty cycle
+ * @zldev: pointer to zl3073x_dev structure
+ * @out: output state to modify
+ * @freq: desired output frequency in Hz
+ *
+ * Computes the output divisor from the attached synthesizer frequency
+ * and the requested output frequency and sets div and width for 50/50
+ * duty cycle.
+ *
+ * Return: 0 on success, -EINVAL if divisor is out of range
+ */
+int zl3073x_out_freq_set(struct zl3073x_dev *zldev, struct zl3073x_out *out,
+			 u32 freq)
+{
+	const struct zl3073x_synth *synth;
+	u8 synth_id;
+	u32 div;
+
+	if (WARN_ON(!freq))
+		return -EINVAL;
+
+	synth_id = zl3073x_out_synth_get(out);
+	synth = zl3073x_synth_state_get(zldev, synth_id);
+	div = zl3073x_synth_freq_get(synth) / freq;
+
+	if (div < 2)
+		return -EINVAL;
+
+	out->div = div;
+	out->width = div;
+
+	return 0;
+}

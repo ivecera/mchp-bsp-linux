@@ -40,6 +40,9 @@ const struct zl3073x_out *zl3073x_out_state_get(struct zl3073x_dev *zldev,
 int zl3073x_out_state_set(struct zl3073x_dev *zldev, u8 index,
 			  const struct zl3073x_out *out);
 
+int zl3073x_out_freq_set(struct zl3073x_dev *zldev,
+			 struct zl3073x_out *out, u32 freq);
+
 /**
  * zl3073x_out_clock_type_get - get output clock type
  * @out: pointer to out state

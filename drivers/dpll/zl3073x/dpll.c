@@ -989,30 +989,25 @@ zl3073x_dpll_output_pin_frequency_set(const struct dpll_pin *dpll_pin,
 	u32 new_div, synth_freq;
 	struct zl3073x_out out;
 	u8 out_id;
+	int rc;
 
 	guard(mutex)(&zldpll->lock);
 
 	out_id = zl3073x_output_pin_out_get(pin->id);
 	out = *zl3073x_out_state_get(zldev, out_id);
 
+	if (!zl3073x_out_is_ndiv(&out)) {
+		rc = zl3073x_out_freq_set(zldev, &out, (u32)frequency);
+		if (rc)
+			return rc;
+
+		return zl3073x_out_state_set(zldev, out_id, &out);
+	}
+
 	/* Get attached synth frequency and compute new divisor */
 	synth = zl3073x_synth_state_get(zldev, zl3073x_out_synth_get(&out));
 	synth_freq = zl3073x_synth_freq_get(synth);
 	new_div = synth_freq / (u32)frequency;
-
-	/* Check signal format */
-	if (!zl3073x_out_is_ndiv(&out)) {
-		/* For non N-divided signal formats the frequency is computed
-		 * as division of synth frequency and output divisor.
-		 */
-		out.div = new_div;
-
-		/* For 50/50 duty cycle the divisor is equal to width */
-		out.width = new_div;
-
-		/* Commit output configuration */
-		return zl3073x_out_state_set(zldev, out_id, &out);
-	}
 
 	if (zl3073x_dpll_is_p_pin(pin)) {
 		/* We are going to change output frequency for P-pin but
