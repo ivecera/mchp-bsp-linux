@@ -24,6 +24,7 @@ struct zl3073x_dpll;
 #define ZL_POLL_DF_READ_TIMEOUT_US	(25 * USEC_PER_MSEC)
 #define ZL_POLL_FAST_LOCK_TIMEOUT_US	(50 * USEC_PER_MSEC)
 #define ZL_POLL_FREQ_MEAS_TIMEOUT_US	(50 * USEC_PER_MSEC)
+#define ZL_POLL_HO_CLEAR_TIMEOUT_US	(50 * USEC_PER_MSEC)
 #define ZL_POLL_HWREG_TIMEOUT_US	(50 * USEC_PER_MSEC)
 #define ZL_POLL_MB_TIMEOUT_US		(30 * USEC_PER_MSEC)
 #define ZL_POLL_PHASE_ERR_TIMEOUT_US	(50 * USEC_PER_MSEC)
@@ -36,6 +37,7 @@ enum zl3073x_flags {
 	ZL3073X_FLAG_REF_PHASE_COMP_32_BIT,
 	ZL3073X_FLAG_DIE_TEMP_BIT,
 	ZL3073X_FLAG_HO_DONT_CLEAR_BIT,
+	ZL3073X_FLAG_HO_CLEAR_BIT,
 	ZL3073X_FLAGS_NBITS /* must be last */
 };
 
@@ -43,9 +45,11 @@ enum zl3073x_flags {
 #define ZL3073X_FLAG_REF_PHASE_COMP_32	__ZL3073X_FLAG(REF_PHASE_COMP_32)
 #define ZL3073X_FLAG_DIE_TEMP		__ZL3073X_FLAG(DIE_TEMP)
 #define ZL3073X_FLAG_HO_DONT_CLEAR	__ZL3073X_FLAG(HO_DONT_CLEAR)
+#define ZL3073X_FLAG_HO_CLEAR		__ZL3073X_FLAG(HO_CLEAR)
 
 #define ZL3073X_FLAGS_B_SERIES	(ZL3073X_FLAG_DIE_TEMP |		\
-				 ZL3073X_FLAG_HO_DONT_CLEAR)
+				 ZL3073X_FLAG_HO_DONT_CLEAR |		\
+				 ZL3073X_FLAG_HO_CLEAR)
 
 /**
  * struct zl3073x_chip_info - chip variant identification
@@ -207,6 +211,21 @@ static inline bool
 zl3073x_dev_has_ho_dont_clear(struct zl3073x_dev *zldev)
 {
 	return zldev->info->flags & ZL3073X_FLAG_HO_DONT_CLEAR;
+}
+
+/*
+ * zl3073x_dev_is_ho_clear_supported - check if holdover clear is supported
+ * @zldev: pointer to zl3073x device
+ *
+ * The clear_ho command in dpll_cmd register is only available on
+ * B Series and later chip variants.
+ *
+ * Return: true if holdover clear is supported, false otherwise
+ */
+static inline bool
+zl3073x_dev_is_ho_clear_supported(struct zl3073x_dev *zldev)
+{
+	return zldev->info->flags & ZL3073X_FLAG_HO_CLEAR;
 }
 
 static inline bool
