@@ -219,6 +219,14 @@ int zl3073x_chan_state_fetch(struct zl3073x_dev *zldev, u8 index)
 			return rc;
 	}
 
+	rc = zl3073x_read_u8(zldev, ZL_REG_DPLL_HO_FILTER, &chan->ho_filter);
+	if (rc)
+		return rc;
+
+	rc = zl3073x_read_u8(zldev, ZL_REG_DPLL_NCO_HO, &chan->nco_ho);
+	if (rc)
+		return rc;
+
 	return 0;
 }
 
@@ -591,11 +599,9 @@ int zl3073x_chan_state_set(struct zl3073x_dev *zldev, u8 index,
 		dchan->mode_refsel = chan->mode_refsel;
 	}
 
-	/* Mailbox write for ref_prio if changed */
-	if (!memcmp(dchan->ref_prio, chan->ref_prio, sizeof(chan->ref_prio))) {
-		dchan->cfg = chan->cfg;
+	/* Check if any mailbox register changed */
+	if (!memcmp(&dchan->cfg, &chan->cfg, sizeof(chan->cfg)))
 		return 0;
-	}
 
 	guard(mutex)(&zldev->multiop_lock);
 
@@ -616,6 +622,20 @@ int zl3073x_chan_state_set(struct zl3073x_dev *zldev, u8 index,
 		}
 	}
 
+	if (dchan->ho_filter != chan->ho_filter) {
+		rc = zl3073x_write_u8(zldev, ZL_REG_DPLL_HO_FILTER,
+				      chan->ho_filter);
+		if (rc)
+			return rc;
+	}
+
+	if (dchan->nco_ho != chan->nco_ho) {
+		rc = zl3073x_write_u8(zldev, ZL_REG_DPLL_NCO_HO,
+				      chan->nco_ho);
+		if (rc)
+			return rc;
+	}
+
 	/* Commit DPLL configuration */
 	rc = zl3073x_mb_op(zldev, ZL_REG_DPLL_MB_SEM, ZL_DPLL_MB_SEM_WR,
 			   ZL_REG_DPLL_MB_MASK, BIT(index));
@@ -626,4 +646,35 @@ int zl3073x_chan_state_set(struct zl3073x_dev *zldev, u8 index,
 	dchan->cfg = chan->cfg;
 
 	return 0;
+}
+
+/**
+ * zl3073x_chan_nco_ho_setup - configure NCO holdover for a DPLL channel
+ * @zldev: pointer to zl3073x_dev structure
+ * @index: DPLL channel index
+ * @timeout: NCO holdover timeout in seconds
+ *
+ * Enables the holdover filter in NCO mode so the chip continuously
+ * averages the frequency offset from adjFine() updates. On B-series
+ * and newer, also prevents the holdover filter from being cleared
+ * on state transitions.
+ *
+ * Configures NCO holdover timeout so that when ptp4l stops calling
+ * adjFine(), the chip automatically falls back to the internal
+ * holdover average.
+ *
+ * Return: 0 on success, <0 on error
+ */
+int zl3073x_chan_nco_ho_setup(struct zl3073x_dev *zldev, u8 index, u8 timeout)
+{
+	struct zl3073x_chan chan = *zl3073x_chan_state_get(zldev, index);
+
+	FIELD_MODIFY(ZL_DPLL_HO_FILTER_NCO_EN, &chan.ho_filter, 1);
+	if (zl3073x_dev_has_ho_dont_clear(zldev))
+		FIELD_MODIFY(ZL_DPLL_HO_FILTER_DONT_CLEAR, &chan.ho_filter, 1);
+
+	FIELD_MODIFY(ZL_DPLL_NCO_HO_SOURCE, &chan.nco_ho, 1);
+	FIELD_MODIFY(ZL_DPLL_NCO_HO_TIMEOUT, &chan.nco_ho, timeout);
+
+	return zl3073x_chan_state_set(zldev, index, &chan);
 }

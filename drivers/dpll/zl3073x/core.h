@@ -34,12 +34,17 @@ struct zl3073x_dpll;
 enum zl3073x_flags {
 	ZL3073X_FLAG_REF_PHASE_COMP_32_BIT,
 	ZL3073X_FLAG_DIE_TEMP_BIT,
+	ZL3073X_FLAG_HO_DONT_CLEAR_BIT,
 	ZL3073X_FLAGS_NBITS /* must be last */
 };
 
 #define __ZL3073X_FLAG(name)	BIT(ZL3073X_FLAG_ ## name ## _BIT)
 #define ZL3073X_FLAG_REF_PHASE_COMP_32	__ZL3073X_FLAG(REF_PHASE_COMP_32)
 #define ZL3073X_FLAG_DIE_TEMP		__ZL3073X_FLAG(DIE_TEMP)
+#define ZL3073X_FLAG_HO_DONT_CLEAR	__ZL3073X_FLAG(HO_DONT_CLEAR)
+
+#define ZL3073X_FLAGS_B_SERIES	(ZL3073X_FLAG_DIE_TEMP |		\
+				 ZL3073X_FLAG_HO_DONT_CLEAR)
 
 /**
  * struct zl3073x_chip_info - chip variant identification
@@ -181,6 +186,18 @@ static inline bool
 zl3073x_dev_is_ref_phase_comp_32bit(struct zl3073x_dev *zldev)
 {
 	return zldev->info->flags & ZL3073X_FLAG_REF_PHASE_COMP_32;
+}
+
+/**
+ * zl3073x_dev_has_ho_dont_clear - check if holdover dont_clear is supported
+ * @zldev: pointer to zl3073x device
+ *
+ * Return: true if the device supports the holdover dont_clear feature
+ */
+static inline bool
+zl3073x_dev_has_ho_dont_clear(struct zl3073x_dev *zldev)
+{
+	return zldev->info->flags & ZL3073X_FLAG_HO_DONT_CLEAR;
 }
 
 static inline bool

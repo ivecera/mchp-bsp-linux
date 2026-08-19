@@ -1994,6 +1994,11 @@ zl3073x_dpll_device_register(struct zl3073x_dpll *zldpll)
 	struct zl3073x_dev *zldev = zldpll->dev;
 	int rc;
 
+	rc = zl3073x_chan_nco_ho_setup(zldev, zldpll->id,
+				       ZL3073X_NCO_HO_TIMEOUT_DEFAULT);
+	if (rc)
+		return rc;
+
 	zldpll->ops = zl3073x_dpll_device_ops;
 	if (zldev->info->flags & ZL3073X_FLAG_DIE_TEMP)
 		zldpll->ops.temp_get = zl3073x_dpll_temp_get;

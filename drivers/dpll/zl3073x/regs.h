@@ -322,6 +322,15 @@
 #define ZL_DPLL_REF_PRIO_MAX			14
 #define ZL_DPLL_REF_PRIO_NONE			15
 
+#define ZL_REG_DPLL_HO_FILTER			ZL_REG(12, 0x62, 1)
+#define ZL_DPLL_HO_FILTER_BW			GENMASK(3, 0)
+#define ZL_DPLL_HO_FILTER_NCO_EN		BIT(4)
+#define ZL_DPLL_HO_FILTER_DONT_CLEAR		BIT(5)
+
+#define ZL_REG_DPLL_NCO_HO			ZL_REG(12, 0x64, 1)
+#define ZL_DPLL_NCO_HO_TIMEOUT			GENMASK(5, 0)
+#define ZL_DPLL_NCO_HO_SOURCE			BIT(7)
+
 /*********************************
  * Register Page 13, Synth Mailbox
  *********************************/

@@ -18,6 +18,8 @@ struct zl3073x_dev;
  * @ctrl: DPLL control register value
  * @mode_refsel: mode and reference selection register value
  * @ref_prio: reference priority registers (4 bits per ref, P/N packed)
+ * @ho_filter: holdover filter configuration register value
+ * @nco_ho: NCO holdover timeout and source register value
  * @mon_status: monitor status register value
  * @refsel_status: reference selection status register value
  * @df_offset: frequency offset vs tracked reference in 2^-48 steps
@@ -27,6 +29,8 @@ struct zl3073x_chan {
 		u8	ctrl;
 		u8	mode_refsel;
 		u8	ref_prio[ZL3073X_NUM_REFS / 2];
+		u8	ho_filter;
+		u8	nco_ho;
 	);
 	struct_group(stat,
 		u8	mon_status;
@@ -35,7 +39,10 @@ struct zl3073x_chan {
 	);
 };
 
+#define ZL3073X_NCO_HO_TIMEOUT_DEFAULT	3
+
 int zl3073x_chan_state_fetch(struct zl3073x_dev *zldev, u8 index);
+int zl3073x_chan_nco_ho_setup(struct zl3073x_dev *zldev, u8 index, u8 timeout);
 const struct zl3073x_chan *zl3073x_chan_state_get(struct zl3073x_dev *zldev,
 						 u8 index);
 int zl3073x_chan_state_set(struct zl3073x_dev *zldev, u8 index,
