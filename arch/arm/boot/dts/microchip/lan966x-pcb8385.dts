@@ -415,27 +415,15 @@
 			reg = <2>;
 
 			connection-type = "gnss";
-			esync-control;
 			label = "1PPS M1 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <1>;
 		};
 		pin@3 { /* OUT1N */
 			reg = <3>;
 
 			connection-type = "gnss";
-			esync-control;
 			label = "1PPS M2 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <1>;
 		};
 		pin@4 { /* OUT2P */
 			reg = <4>;
