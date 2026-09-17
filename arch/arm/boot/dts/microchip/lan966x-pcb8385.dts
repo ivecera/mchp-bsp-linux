@@ -166,7 +166,7 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			dpll-types = "eec", "pps";
+			dpll-types = "pps", "eec";
 		};
 	};
 };
