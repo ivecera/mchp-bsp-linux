@@ -363,33 +363,16 @@
 			reg = <7>;
 
 			connection-type = "ext";
-			esync-control;
 			label = "Feedb 1PPS IN";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000
-							   62500000
-							   78125000
-							   100000000>;
+			supported-frequencies-hz = /bits/ 64 <1 1000>;
 		};
 		pin@8 { /* REF4P */
 			reg = <8>;
 
 			connection-type = "ext";
-			esync-control;
 			label = "Feedb 25M IN";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000
-							   62500000
-							   78125000
-							   100000000>;
+			supported-frequencies-hz = /bits/ 64 <10000000
+							      25000000>;
 		};
 		pin@9 { /* REF4N */
 			reg = <9>;
@@ -417,27 +400,16 @@
 			reg = <0>;
 
 			connection-type = "gnss";
-			esync-control;
 			label = "Feedb 25M OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <10000000
+							      25000000>;
 		};
 		pin@1 { /* OUT0N */
 			reg = <1>;
 
 			connection-type = "gnss";
-			esync-control;
 			label = "1PPS OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <1 1000>;
 		};
 		pin@2 { /* OUT1P */
 			reg = <2>;
