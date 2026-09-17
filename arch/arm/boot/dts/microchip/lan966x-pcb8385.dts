@@ -151,6 +151,7 @@
 	i2c1: i2c@600 {
 		pinctrl-0 = <&fc1_c_pins>;
 		pinctrl-names = "default";
+		clock-frequency = <400000>;
 		dmas = <0>, <0>;
 		i2c-analog-filter;
 		i2c-digital-filter;
