@@ -441,93 +441,51 @@
 		pin@6 { /* OUT3P & OUT3N LVDS */
 			reg = <6>;
 
-			connection-type = "gnss";
-			esync-control;
+			connection-type = "synce";
 			label = "CLK125M1 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <125000000>;
 		};
 		pin@8 { /* OUT4P & OUT4N LVDS */
 			reg = <8>;
 
-			connection-type = "gnss";
-			esync-control;
+			connection-type = "synce";
 			label = "CLK125M2 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <125000000>;
 		};
 		pin@12 { /* OUT6P & OUT6N LVDS */
 			reg = <12>;
 
-			connection-type = "gnss";
-			esync-control;
+			connection-type = "synce";
 			label = "SyncE Local OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <125000000>;
 		};
 		pin@14 { /* OUT7P & OUT7N LVDS */
 			reg = <14>;
 
-			connection-type = "gnss";
-			esync-control;
+			connection-type = "synce";
 			label = "SyncE Diff M1 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <125000000>;
 		};
 		pin@16 { /* OUT8P & OUT8N LVDS */
 			reg = <16>;
 
-			connection-type = "gnss";
-			esync-control;
+			connection-type = "synce";
 			label = "SyncE Diff M2 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <125000000>;
 		};
 		pin@18 { /* OUT9P */
 			reg = <18>;
 
-			connection-type = "gnss";
-			esync-control;
+			connection-type = "synce";
 			label = "SyncE M1 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <125000000>;
 		};
 		pin@19 { /* OUT9N */
 			reg = <19>;
 
-			connection-type = "gnss";
-			esync-control;
+			connection-type = "synce";
 			label = "SyncE M2 OUT";
-			supported-frequencies-hz = /bits/ 64 <1
-							   25
-							   100
-							   1000
-							   10000000
-							   25000000>;
+			supported-frequencies-hz = /bits/ 64 <125000000>;
 		};
 	};
 };
